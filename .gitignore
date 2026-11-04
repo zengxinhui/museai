@@ -4,3 +4,5 @@ public/js/
 data-raw/
 resolve.log
 .DS_Store
+.clj-kondo
+.lsp
