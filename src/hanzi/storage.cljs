@@ -79,33 +79,70 @@
   (+ now (* (nth review-intervals (min level max-review-level))
             24 60 60 1000)))
 
+(defn- chinese-voice?
+  "A voice that can speak Mandarin: zh-*, cmn-* (Mandarin), or zho-*."
+  [v]
+  (let [lang (or (.-lang v) "")]
+    (or (str/starts-with? lang "zh")
+        (str/starts-with? lang "cmn")
+        (str/starts-with? lang "zho"))))
+
+(defn- speak-utterance!
+  [synth ch voice]
+  (let [u (js/SpeechSynthesisUtterance. ch)]
+    (set! (.-lang u) "zh-CN")
+    (when voice (set! (.-voice u) voice))
+    (set! (.-rate u) 0.9)
+    (.speak synth u)))
+
 (defn speak
   "Pronounce a character with the browser's built-in speech synthesis,
    if it is available. This is a browser API, not a library.
-   Returns true if an utterance was queued, false otherwise.
-   Why the extra steps (previously this just called .speak once):
-   - speechSynthesis can be left paused (notably on iOS Safari), in
-     which case queued utterances never play until .resume is called.
-   - a previous utterance can block a new one, so cancel first.
-   - with lang \"zh-CN\" but no voice chosen, some browsers/devices
-     with no Chinese voice installed stay silent; picking an explicit
-     zh voice when one is available fixes that case."
-  [ch]
+   Returns :ok, :no-speech, :no-zh-voice, or :waiting.
+   - :waiting means the browser had not loaded its voice list yet
+     (getVoices returns [] on first use in Chrome and others). In
+     that case a voiceschanged handler speaks as soon as voices
+     arrive, and calls on-done with :ok or :no-zh-voice then.
+   - :no-zh-voice means voices are loaded but none can speak
+     Chinese. The previous version returned success in this case
+     and spoke with no voice, which is silent on many devices —
+     that silent-success was hiding the real problem.
+   Other fixes over the first version, which just called .speak:
+   - only cancel when something is actually speaking or pending.
+     Cancelling unconditionally and then speaking immediately is a
+     known iOS failure: the new utterance gets swallowed by the
+     cancel. When we do cancel, the new utterance is delayed 150 ms.
+   - resume when paused (notably iOS Safari), otherwise queued
+     utterances never play."
+  [ch & [on-done]]
   (if (and js/window (.-speechSynthesis js/window) (seq ch))
     (try
-      (let [synth (.-speechSynthesis js/window)]
-        (.cancel synth)
+      (let [synth (.-speechSynthesis js/window)
+            was-busy (or (.-speaking synth) (.-pending synth))]
+        (when was-busy (.cancel synth))
         (when (.-paused synth) (.resume synth))
-        (let [u (js/SpeechSynthesisUtterance. ch)
-              voices (try (array-seq (.getVoices synth)) (catch :default _ nil))
-              zh-voice (first (filter (fn [v]
-                                        (and (.-lang v)
-                                             (str/starts-with? (.-lang v) "zh")))
-                                      voices))]
-          (set! (.-lang u) "zh-CN")
-          (when zh-voice (set! (.-voice u) zh-voice))
-          (set! (.-rate u) 0.9)
-          (.speak synth u)
-          true))
-      (catch :default _ false))
-    false))
+        (let [voices (try (array-seq (.getVoices synth)) (catch :default _ nil))]
+          (cond
+            (empty? voices)
+            (do
+              (set! (.-onvoiceschanged synth)
+                    (fn []
+                      (set! (.-onvoiceschanged synth) nil)
+                      (let [vs (try (array-seq (.getVoices synth)) (catch :default _ nil))
+                            v (first (filter chinese-voice? vs))]
+                        (if v
+                          (do (speak-utterance! synth ch v)
+                              (when on-done (on-done :ok)))
+                          (when on-done (on-done :no-zh-voice))))))
+              :waiting)
+            :else
+            (let [v (first (filter chinese-voice? voices))]
+              (if (nil? v)
+                :no-zh-voice
+                (do
+                  (if was-busy
+                    (js/setTimeout #(speak-utterance! synth ch v) 150)
+                    (speak-utterance! synth ch v))
+                  :ok))))))
+      (catch :default _ :no-speech))
+    :no-speech))

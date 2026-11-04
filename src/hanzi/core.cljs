@@ -160,15 +160,29 @@
       pass? (record-write-pass! (:char ch-data)))))
 
 ;; ---- Small pieces --------------------------------------------------------
+(defn- speak-error-msg [status]
+  (case status
+    :no-speech
+    "Speech is not available in this browser."
+    :no-zh-voice
+    "No Chinese voice was found on this device, so there is nothing to play. Install a Chinese voice in your device's language/voice settings (for example, on iPhone: Settings > Accessibility > Spoken Content > Voices > Chinese), then try again."
+    :waiting
+    "Speech voices are still loading — it should play in a moment. If it doesn't, click Hear it again."
+    "Speech is not available in this browser."))
+
 (defn speak!
   "Speak a character; if speech is unavailable, show a message instead
    of failing silently (the previous behaviour, which made 'Hear it'
    look like it did nothing)."
   [ch]
-  (if (store/speak ch)
-    (swap! ui dissoc :speak-error)
-    (swap! ui assoc :speak-error
-           "Speech is not available in this browser. Check that your device is not muted and has a Chinese voice installed (in your device's language/voice settings).")))
+  (let [status (store/speak ch
+                            (fn [s]
+                              (if (= s :ok)
+                                (swap! ui dissoc :speak-error)
+                                (swap! ui assoc :speak-error (speak-error-msg s)))))]
+    (if (= status :ok)
+      (swap! ui dissoc :speak-error)
+      (swap! ui assoc :speak-error (speak-error-msg status)))))
 
 (defn state-badge [ch]
   (let [s (state-of ch)]
