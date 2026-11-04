@@ -1,4 +1,4 @@
-# Hanzi Learner — learn to read and write the 1000 most frequent Chinese characters
+# Hanzi Learner — learn to read and write the 500 most frequent Chinese characters
 
 A single-page app written in **ClojureScript + Reagent only** (no other
 front-end framework or library). The compiled page is `public/index.html`
@@ -7,7 +7,7 @@ time: all data is bundled, and all user data stays in the browser.
 
 ## What it teaches, and how
 
-Characters are taught **in MTSU frequency order, at most 10 at a time**.
+Characters are taught **in Keats School order, at most 10 at a time**.
 The current batch is the first 10 characters in rank order that are not
 yet Learned. When all 10 are Learned, the next 10 unlock automatically.
 
@@ -31,7 +31,7 @@ Flow:
    retried as often as you like in practice.
 3. **Read quiz** — for characters in the current batch that are in
    Learning: pick the pinyin and the meaning from multiple-choice
-   options (distractors are drawn from other top-1000 characters).
+   options (distractors are drawn from other top-500 characters).
 4. **Write quiz** — write from pinyin + meaning only, no template.
    Each stroke is scored once, in order, then the next stroke is
    attempted. A pass needs at least 80% of strokes correct
@@ -41,7 +41,7 @@ Flow:
    is the upper limit). A review tests reading and then writing;
    passing goes up a step, failing either resets the interval to
    1 day, with the character staying Learned and due again tomorrow.
-6. **Browse** — a searchable reference list of all 1000, in rank
+6. **Browse** — a searchable reference list of all 500, in rank
    order. Browsing does not change the teaching order.
 
 ## How stroke checking works (relaxed, as requested)
@@ -80,7 +80,18 @@ Absence of a progress entry means **New**.
 
 ## Data sources and formats
 
-### 1. Top 1000 characters — MTSU / Jun Da
+### 1. Top 500 characters — Keats School order
+
+Source: <https://blog.keatschinese.com/the-500-most-commonly-used-chinese-characters/>
+The list on that page, in its order, is saved one character per
+line in `scripts/keats500.txt` and is the teaching order
+(:rank 1–500, #1 的 … #500 酒). All 500 were verified to exist
+in both makemeahanzi files below. One character was garbled in
+a browser-text crawl of the page (the 5th character of the
+太/新/比/才/…/夫 row) but is 便 in the page's raw HTML, and
+便 is in the saved list at that position.
+
+### 2. Frequency and gloss — MTSU / Jun Da
 
 Source: <https://lingua.mtsu.edu/chinese-computing/statistics/char/list.php>
 (the page is GB2312-encoded; the extraction decodes it as GBK).
@@ -92,11 +103,13 @@ rank TAB character TAB raw-frequency TAB cumulative-% TAB pinyin TAB English-glo
 ```
 
 Pinyin there uses numeric tones (`zhi1`, `bu4/bu2`) and some rows
-have no English gloss. The first 1000 rows are used, in that order:
-#1 之 … #1000 专. All 1000 were verified to exist in both
-makemeahanzi files below, with a matching SVG file each.
+have no English gloss. MTSU frequency, cumulative %, pinyin and
+gloss are kept as :freq, :cum, :pinyin-mtsu and :english-mtsu,
+but MTSU no longer sets the order: 57 of the Keats 500 are
+outside the old MTSU top 1000 (e.g. 她 at MTSU rank 1330,
+确 at 2328).
 
-### 2. Make Me a Hanzi — skishore/makemeahanzi
+### 3. Make Me a Hanzi — skishore/makemeahanzi
 
 Source: <https://github.com/skishore/makemeahanzi>
 Files used: `dictionary.txt`, `graphics.txt`, and the `svgs/` and
@@ -127,11 +140,13 @@ that transform, and medians are flipped with `display-median` in
 `src/hanzi/strokes.cljs`. Without the flip, characters would appear
 upside down.
 
-`scripts/extract_top1000.py` documents and reproduces the
-extraction (it writes the intermediate `data-raw/top1000.json`);
-`src/hanzi/data.cljs` is the resulting top-1000 dataset bundled
-into the app (2.4 MB: 1000 characters, 7,824 strokes in total,
-about 7.8 strokes per character on average).
+`scripts/extract_top500.py` documents and reproduces the
+extraction (it writes the intermediate `data-raw/top500.json`);
+`src/hanzi/data.cljs` is the resulting top-500 dataset bundled
+into the app (1.2 MB: 500 characters, 3,619 strokes in total,
+about 7.2 strokes per character on average). The old
+`scripts/extract_top1000.py` (MTSU top 1000, in MTSU order) is
+kept for reference only and no longer generates the app data.
 
 ## Build and run
 
@@ -222,13 +237,15 @@ the docstring first, then `:require`.
 ```
 public/index.html          single page, styles, <div id="app">
 public/js/main.js          compiled output (generated, not in git)
-src/hanzi/data.cljs        top 1000 characters + strokes + medians
+src/hanzi/data.cljs        top 500 characters + strokes + medians
 src/hanzi/strokes.cljs     median geometry + relaxed stroke scoring
 src/hanzi/storage.cljs     localStorage schema + spaced-review intervals
 src/hanzi/ui.cljs          stroke animation + writing pad (Reagent)
 src/hanzi/core.cljs        accounts, batches, quizzes, review, views
 shadow-cljs.edn            shadow-cljs build, Reagent 1.2.0 dependency
-scripts/extract_top1000.py data extraction, documented
+scripts/extract_top500.py  data extraction, documented
+scripts/keats500.txt     Keats top-500 list, one character per line
+scripts/extract_top1000.py old MTSU top-1000 extraction, reference only
 scripts/resolve_maven.py   proxy-capable Maven pre-download (offline build)
 data-raw/                  fetched sources (development only)
 ```

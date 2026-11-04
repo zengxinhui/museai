@@ -269,7 +269,7 @@
     [:div
      [:h2 "Learn"]
      [:p (str "Learning in frequency order, at most 10 at a time. "
-              "You have learned " (:learned c) " of 1000, "
+              "You have learned " (:learned c) " of 500, "
               (:learning c) " in progress, " (:new c) " still new. "
               (count (due-chars)) " learned character(s) are due for review.")]
      [:div {:class "batch"}
@@ -298,7 +298,7 @@
             "Keep this in Learning")]
          [:button {:on-click #(swap! ui assoc :view :read-quiz :quiz nil)} "Test reading"]
          [:button {:on-click #(swap! ui assoc :view :write-quiz :quiz nil)} "Test writing"]]]
-       [:p "🎉 All 1000 characters learned. Use Review to keep them fresh."])]))
+       [:p "🎉 All 500 characters learned. Use Review to keep them fresh."])]))
 
 (defn browse-view []
   (let [search (:search @ui)
@@ -312,7 +312,7 @@
                          data/chars)
         batch-set (set (map :char (current-batch)))]
     [:div
-     [:h2 "Browse all 1000"]
+     [:h2 "Browse all 500"]
      [:p "This is a reference list in frequency order. Teaching itself stays in batches of 10 — "
       "a character outside the current batch can be looked up here, but it only enters Learn, quizzes and Review through the batch order."]
      [:input {:type "text" :placeholder "Search character, pinyin or meaning…"
@@ -321,9 +321,9 @@
      [:p (str (count filtered) " characters shown.")]
      [:div {:class "browse-grid"}
       ;; Previously this was (take 200 filtered): the count above said
-      ;; 1000, but only the first 200 cards were actually rendered, so
+      ;; 500, but only the first 200 cards were actually rendered, so
       ;; Browse never reached the rest of the list. Render all of
-      ;; filtered now — 1000 simple cards is fine for React, and a
+      ;; filtered now — 500 simple cards is fine for React, and a
       ;; search narrows it further.
       (for [c filtered]
         ^{:key (:char c)}
@@ -416,7 +416,7 @@
    [:h3 "Restore from backup"]
    [restore-control]
    [:hr]
-   [:p "This app keeps everything in this browser. Pick a name for your account to start learning the 1000 most frequent characters."]
+   [:p "This app keeps everything in this browser. Pick a name for your account to start learning the 500 most frequent characters."]
    [:input {:type "text" :placeholder "Your name"
             :value (:new-account @ui)
             :on-change #(swap! ui assoc :new-account (.. % -target -value))}]
@@ -433,7 +433,7 @@
 (defn app []
   (if (nil? (current-name))
     [:div {:class "wrap"}
-     [:header [:h1 "汉字 · Hanzi Learner"] [:p "Learn to read and write the 1000 most frequent Chinese characters."]]
+     [:header [:h1 "汉字 · Hanzi Learner"] [:p "Learn to read and write the 500 most frequent Chinese characters."]]
      [account-setup]]
     (let [c (counts)
           view (:view @ui)
