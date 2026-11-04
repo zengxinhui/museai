@@ -19,7 +19,13 @@
   .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin: 16px 0; }
   .batch { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
   .batch-btn { min-width: 86px; text-align: center; }
-  .batch-btn.active { background: #dbeafe; border-color: #2563eb; }
+  /* Bug fix: button.active sets color:#fff (white) for nav buttons.
+     .batch-btn.active only overrode the background to pale blue,
+     leaving white text on pale blue — nearly unreadable.
+     The selected Learn character now explicitly uses dark text
+     on pale blue, with a stronger border. */
+  .batch-btn.active { background: #dbeafe; border-color: #2563eb; color: #111827; }
+  .batch-btn.active:hover { background: #bfdbfe; color: #111827; }
   .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 13px; }
   .badge-new { background: #e5e7eb; }
   .badge-learning { background: #fef3c7; }

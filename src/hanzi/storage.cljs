@@ -16,7 +16,8 @@
                                     :learned-at ms :next-review ms
                                     :last-seen ms}}}}}
   "
-  (:require [cljs.reader :as reader]))
+  (:require [cljs.reader :as reader]
+            [clojure.string :as str]))
 
 (def storage-key "hanzi-learner-v1")
 
@@ -68,19 +69,43 @@
                            :reviews 0 :level 0})))))
 
 ;; Spaced review: intervals in days, by review level.
-(def review-intervals [1 3 7 14 30 60])
+;; 1, 2, 4, 8, 16, 32 — 32 days is the upper limit: levels at or
+;; above the last interval stay at 32 days, they do not grow further.
+(def review-intervals [1 2 4 8 16 32])
+
+(def max-review-level (dec (count review-intervals)))
 
 (defn next-review-ms [now level]
-  (+ now (* (nth review-intervals (min level (dec (count review-intervals))))
+  (+ now (* (nth review-intervals (min level max-review-level))
             24 60 60 1000)))
 
 (defn speak
   "Pronounce a character with the browser's built-in speech synthesis,
-   if it is available. This is a browser API, not a library."
+   if it is available. This is a browser API, not a library.
+   Returns true if an utterance was queued, false otherwise.
+   Why the extra steps (previously this just called .speak once):
+   - speechSynthesis can be left paused (notably on iOS Safari), in
+     which case queued utterances never play until .resume is called.
+   - a previous utterance can block a new one, so cancel first.
+   - with lang \"zh-CN\" but no voice chosen, some browsers/devices
+     with no Chinese voice installed stay silent; picking an explicit
+     zh voice when one is available fixes that case."
   [ch]
-  (when (and js/window.speechSynthesis (seq ch))
+  (if (and js/window (.-speechSynthesis js/window) (seq ch))
     (try
-      (let [u (js/SpeechSynthesisUtterance. ch)]
-        (set! (.-lang u) "zh-CN")
-        (.speak js/window.speechSynthesis u))
-      (catch :default _ nil))))
+      (let [synth (.-speechSynthesis js/window)]
+        (.cancel synth)
+        (when (.-paused synth) (.resume synth))
+        (let [u (js/SpeechSynthesisUtterance. ch)
+              voices (try (array-seq (.getVoices synth)) (catch :default _ nil))
+              zh-voice (first (filter (fn [v]
+                                        (and (.-lang v)
+                                             (str/starts-with? (.-lang v) "zh")))
+                                      voices))]
+          (set! (.-lang u) "zh-CN")
+          (when zh-voice (set! (.-voice u) zh-voice))
+          (set! (.-rate u) 0.9)
+          (.speak synth u)
+          true))
+      (catch :default _ false))
+    false))

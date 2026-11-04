@@ -65,13 +65,21 @@
                           (fn [p] (update (assoc p :state "learning") :write-pass inc)))
   (maybe-promote! ch))
 
-(defn demote-to-learning! [ch]
-  (store/update-progress! db (current-name) ch
-                          (fn [p] (assoc p :state "learning" :level 0 :next-review nil))))
+;; A failed review no longer demotes the character to Learning.
+;; Instead its interval resets to 1 day (level 0), staying Learned
+;; and due again tomorrow.
+(defn reset-review! [ch]
+  (let [now (js/Date.now)]
+    (store/update-progress! db (current-name) ch
+                            (fn [q] (assoc q :state "learned"
+                                           :level 0
+                                           :next-review (store/next-review-ms now 0)
+                                           :last-seen now)))))
 
 (defn record-review-pass! [ch]
   (let [p (progress-of ch)
-        new-level (inc (:level p 0))
+        ;; Keep going up the ladder, but cap at the last interval (32 days).
+        new-level (min (inc (:level p 0)) store/max-review-level)
         now (js/Date.now)]
     (store/update-progress! db (current-name) ch
                             (fn [q] (assoc q :state "learned"
@@ -131,7 +139,7 @@
       (= (:kind q) :review)
       (if ok?
         (swap! ui assoc-in [:quiz :stage] :write)
-        (do (demote-to-learning! (:char ch-data))
+        (do (reset-review! (:char ch-data))
             (swap! ui assoc-in [:quiz :stage] :failed)))
       ok? (record-read-pass! (:char ch-data)))))
 
@@ -148,10 +156,20 @@
       (= (:kind q) :review)
       (if pass?
         (record-review-pass! (:char ch-data))
-        (demote-to-learning! (:char ch-data)))
+        (reset-review! (:char ch-data)))
       pass? (record-write-pass! (:char ch-data)))))
 
 ;; ---- Small pieces --------------------------------------------------------
+(defn speak!
+  "Speak a character; if speech is unavailable, show a message instead
+   of failing silently (the previous behaviour, which made 'Hear it'
+   look like it did nothing)."
+  [ch]
+  (if (store/speak ch)
+    (swap! ui dissoc :speak-error)
+    (swap! ui assoc :speak-error
+           "Speech is not available in this browser. Check that your device is not muted and has a Chinese voice installed (in your device's language/voice settings).")))
+
 (defn state-badge [ch]
   (let [s (state-of ch)]
     [:span {:class (str "badge badge-" (name s))}
@@ -172,7 +190,9 @@
      [:p [:strong "MTSU gloss: "] (:english-mtsu ch-data)])
    [:p [:strong "MTSU pinyin: "] (:pinyin-mtsu ch-data)
     "  ·  " [:strong "Frequency: "] (:freq ch-data)]
-   [:button {:on-click #(store/speak (:char ch-data))} "🔊 Hear it"]])
+   [:button {:on-click #(speak! (:char ch-data))} "🔊 Hear it"]
+   (when (:speak-error @ui)
+     [:p {:style {:color "#b91c1c"}} (:speak-error @ui)])])
 
 (defn option-list [label options selected on-select]
   [:div {:style {:margin "12px 0"}}
@@ -191,7 +211,9 @@
      [:h3 (str "Read: what is this character?  (" (inc (:pos q)) " of " (count (:queue q)) ")")]
      [:div {:style {:font-size "96px" :text-align "center"}} (:char ch-data)]
      [:div {:style {:display "flex" :gap "8px" :justify-content "center"}}
-      [:button {:on-click #(store/speak (:char ch-data))} "🔊 Hear it"]]
+      [:button {:on-click #(speak! (:char ch-data))} "🔊 Hear it"]]
+     (when (:speak-error @ui)
+       [:p {:style {:color "#b91c1c" :text-align "center"}} (:speak-error @ui)])
      [option-list "Pinyin" (:pinyin-opts q) (:sel-pinyin q)
       #(swap! ui assoc-in [:quiz :sel-pinyin] %)]
      [option-list "Meaning" (:meaning-opts q) (:sel-meaning q)
@@ -249,7 +271,7 @@
          :read [read-question-view]
          :write [write-question-view (quiz-char)]
          :failed [:div {:class "card"}
-                  [:p "That review did not pass, so the character is back in Learning."]
+                  [:p "That review did not pass, so its interval resets to 1 day. It will be due again tomorrow."]
                   [:button {:on-click advance-quiz!} "Next review"]]
          [read-question-view])
        :else [:p "Unknown quiz."])]))
@@ -402,7 +424,7 @@
                               (.click a)
                               (.revokeObjectURL js/URL url)))}
        "Download backup (EDN)"]
-      [restore-control]]))
+      [restore-control]]]))
 
 (defn account-setup []
   [:div {:class "card"}
@@ -457,7 +479,7 @@
                        "Test the characters in your current batch. Write from pinyin and meaning only — no template."
                        (fn [] (filter #(= :learning (state-of (:char %))) (current-batch)))]
           :review [quiz-view :review "Review learned characters"
-                   "Learned characters come back after 1, 3, 7, 14, 30, then 60 days. Pass reading and writing to push the next review out; fail either and the character returns to Learning."
+                   "Learned characters come back after 1, 2, 4, 8, 16, then 32 days (32 is the upper limit). Pass reading and writing to go up a step; fail either and the interval resets to 1 day."
                    (fn [] (if (seq (due-chars)) (due-chars)
                             (filter #(= :learned (state-of (:char %))) data/chars)))]
           :browse [browse-view]

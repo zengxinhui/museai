@@ -38,10 +38,10 @@ Flow:
    attempted. A pass needs at least 80% of strokes correct
    (100% for 1–2 stroke characters).
 5. **Review** — Learned characters come back on a spaced schedule:
-   1, 3, 7, 14, 30, then 60 days after the previous pass. A review
-   tests reading and then writing; passing pushes the next review
-   out, failing either returns the character to Learning, so it
-   re-enters the current batch.
+   1, 2, 4, 8, 16, then 32 days after the previous pass (32 days
+   is the upper limit). A review tests reading and then writing;
+   passing goes up a step, failing either resets the interval to
+   1 day, with the character staying Learned and due again tomorrow.
 6. **Browse** — a searchable reference list of all 1000, in rank
    order. Browsing does not change the teaching order.
 
