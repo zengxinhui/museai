@@ -402,7 +402,7 @@
                               (.click a)
                               (.revokeObjectURL js/URL url)))}
        "Download backup (EDN)"]
-      [restore-control]]))
+      [restore-control]]]))
 
 (defn account-setup []
   [:div {:class "card"}
