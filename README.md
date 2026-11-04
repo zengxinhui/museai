@@ -7,9 +7,9 @@ time: all data is bundled, and all user data stays in the browser.
 
 ## What it teaches, and how
 
-Characters are taught **in Keats School order, at most 10 at a time**.
-The current batch is the first 10 characters in rank order that are not
-yet Learned. When all 10 are Learned, the next 10 unlock automatically.
+Characters are taught **in Keats School order, at most 5 at a time**.
+The current batch is the first 5 characters in rank order that are not
+yet Learned. When all 5 are Learned, the next 5 unlock automatically.
 
 Each character has one of three states, per account:
 
@@ -43,6 +43,21 @@ Flow:
    1 day, with the character staying Learned and due again tomorrow.
 6. **Browse** — a searchable reference list of all 500, in rank
    order. Browsing does not change the teaching order.
+7. **Pick of the Day** — a curated phrase, sentence, or short
+   conversation from `src/hanzi/picks.cljs` (424 entries, all
+   characters from the top 500, covering 498 of the 500 — the
+   first 100 characters are fully covered, and the only
+   characters with no pick are 尔 and 尼, which in this set are
+   essentially transliteration characters with no natural
+   top-500-only sentence). A pick is eligible when it uses
+   at least 2 characters the current account has Learned; the
+   day's pick is deterministic from the calendar date, so it is
+   the same all day and changes tomorrow, with no server. If no
+   pick is eligible yet, the full bank is used as a fallback so
+   there is always a pick. "Another pick" cycles to the next
+   eligible pick. The app does not invent sentences: grammar
+   correctness lives in the curated bank, not in random
+   combinations of learned characters.
 
 ## How stroke checking works (relaxed, as requested)
 

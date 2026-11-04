@@ -2,6 +2,7 @@
   (:require [reagent.core :as r]
             [reagent.dom.client :as rdom-client]
             [hanzi.data :as data]
+            [hanzi.picks :as picks]
             [hanzi.storage :as store]
             [hanzi.ui :as ui]))
 
@@ -20,7 +21,7 @@
 (defn progress-of [ch] (store/account-progress @db (current-name) ch))
 
 (defn current-batch []
-  (take 10 (remove #(= :learned (state-of (:char %))) data/chars)))
+  (take 5 (remove #(= :learned (state-of (:char %))) data/chars)))
 
 (defn counts []
   (let [states (map #(state-of (:char %)) data/chars)]
@@ -268,7 +269,7 @@
         c (counts)]
     [:div
      [:h2 "Learn"]
-     [:p (str "Learning in frequency order, at most 10 at a time. "
+     [:p (str "Learning in Keats order, at most 5 at a time. "
               "You have learned " (:learned c) " of 500, "
               (:learning c) " in progress, " (:new c) " still new. "
               (count (due-chars)) " learned character(s) are due for review.")]
@@ -300,6 +301,85 @@
          [:button {:on-click #(swap! ui assoc :view :write-quiz :quiz nil)} "Test writing"]]]
        [:p "🎉 All 500 characters learned. Use Review to keep them fresh."])]))
 
+;; ---- Pick of the Day -----------------------------------------------------
+;; A pick is eligible when it uses at least 2 characters the current
+;; account has Learned. The day's pick is deterministic from the
+;; local calendar date, so it is the same all day and changes
+;; tomorrow, with no server: index = (day + offset) mod pool-size.
+;; :pick-offset (in the transient ui atom) lets the user browse to
+;; another eligible pick without changing what tomorrow's pick is.
+;; If no pick is eligible yet (fewer than 2 Learned characters in
+;; any one pick), the full bank is used as a fallback so there is
+;; always a pick, and the view says so.
+
+(defn pick-texts [pick]
+  (if (:lines pick) (map :text (:lines pick)) [(:text pick)]))
+
+(defn pick-chars-ordered [pick]
+  (let [known (set (map :char data/chars))]
+    (distinct (filter #(contains? known (str %))
+                      (mapcat seq (pick-texts pick))))))
+
+(defn learned-char-set []
+  (set (map :char (filter #(= :learned (state-of (:char %))) data/chars))))
+
+(defn pick-day-number []
+  (let [d (js/Date.)]
+    (Math/floor (/ (js/Date.UTC (.getFullYear d) (.getMonth d) (.getDate d)) 86400000))))
+
+(defn pick-of-day-view []
+  (let [learned (learned-char-set)
+        eligible (filter (fn [p]
+                           (>= (count (filter #(contains? learned %) (pick-chars-ordered p))) 2))
+                         picks/picks)
+        fallback? (empty? eligible)
+        pool (if fallback? picks/picks eligible)
+        day (pick-day-number)
+        idx (mod (+ day (:pick-offset @ui 0)) (count pool))
+        pick (nth pool idx)
+        chars (pick-chars-ordered pick)
+        learned-in-pick (filter #(contains? learned %) chars)
+        d (js/Date.)
+        date-str (str (.getFullYear d) "-" (inc (.getMonth d)) "-" (.getDate d))]
+    [:div
+     [:h2 "Pick of the Day"]
+     [:p (str "For " date-str ". "
+              (if fallback?
+                "No pick yet uses 2 characters you have Learned, so this is today's pick from the full bank. Learn its characters to unlock picks chosen from what you know."
+                (str "This pick uses " (count learned-in-pick)
+                     " character(s) you have Learned, out of " (count chars) " in the pick.")))]
+     [:p (str (count eligible) " of " (count picks/picks)
+              " picks use at least 2 characters you have Learned.")]
+     [:div {:class "card"}
+      (if (:lines pick)
+        [:div
+         [:p [:strong "Short conversation — "] (:meaning pick)]
+         (for [line (:lines pick)]
+           ^{:key (str (:speaker line) (:text line))}
+           [:div {:style {:margin "12px 0"}}
+            [:p [:strong (str (:speaker line) ": ")]
+             [:span {:style {:font-size "28px"}} (:text line)]]
+            [:p (:pinyin line)]
+            [:p (:meaning line)]])]
+        [:div
+         [:p [:span {:style {:font-size "36px"}} (:text pick)]]
+         [:p (:pinyin pick)]
+         [:p (:meaning pick)]
+         [:p (str (case (:kind pick) :phrase "Phrase" :sentence "Sentence" "Pick"))]])]
+     [:div {:style {:display "flex" :gap "8px" :flex-wrap "wrap"}}
+      [:button {:on-click #(swap! ui update :pick-offset (fn [o] (inc (or o 0))))}
+       "Another pick"]]
+     [:h3 "Characters in this pick"]
+     [:div {:class "browse-grid"}
+      (for [ch chars]
+        (let [c (some #(when (= (:char %) ch) %) data/chars)]
+          ^{:key ch}
+          [:div {:class "browse-card"}
+           [:span {:style {:font-size "28px"}} ch]
+           [:br] (first (:pinyin c))
+           [:br] [state-badge ch]
+           [:br] [:small (:definition c)]]))]]))
+
 (defn browse-view []
   (let [search (:search @ui)
         q (clojure.string/lower-case (or search ""))
@@ -313,7 +393,7 @@
         batch-set (set (map :char (current-batch)))]
     [:div
      [:h2 "Browse all 500"]
-     [:p "This is a reference list in frequency order. Teaching itself stays in batches of 10 — "
+     [:p "This is a reference list in Keats order. Teaching itself stays in batches of 5 — "
       "a character outside the current batch can be looked up here, but it only enters Learn, quizzes and Review through the batch order."]
      [:input {:type "text" :placeholder "Search character, pinyin or meaning…"
               :value search :style {:width "100%" :padding "10px" :font-size "16px"}
@@ -448,7 +528,7 @@
        [:nav
         (for [[v label] [[:learn "Learn"] [:read-quiz "Read quiz"] [:write-quiz "Write quiz"]
                          [:review (str "Review" (when (pos? due) (str " (" due ")")))]
-                         [:browse "Browse"] [:accounts "Accounts"]]]
+                         [:browse "Browse"] [:pick "Pick of the Day"] [:accounts "Accounts"]]]
           ^{:key v}
           [:button {:class (when (= view v) "active")
                     :on-click #(swap! ui assoc :view v :quiz nil)}
@@ -457,7 +537,7 @@
         (case view
           :learn [learn-view]
           :read-quiz [quiz-view :read "Read quiz"
-                      "Test the characters in your current batch (at most 10). Pick the pinyin and the meaning for each character."
+                      "Test the characters in your current batch (at most 5). Pick the pinyin and the meaning for each character."
                       (fn [] (filter #(= :learning (state-of (:char %))) (current-batch)))]
           :write-quiz [quiz-view :write "Write quiz"
                        "Test the characters in your current batch. Write from pinyin and meaning only — no template."
@@ -467,6 +547,7 @@
                    (fn [] (if (seq (due-chars)) (due-chars)
                             (filter #(= :learned (state-of (:char %))) data/chars)))]
           :browse [browse-view]
+          :pick [pick-of-day-view]
           :accounts [accounts-view]
           [learn-view])]])))
 
