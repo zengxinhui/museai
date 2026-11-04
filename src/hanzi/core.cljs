@@ -160,30 +160,6 @@
       pass? (record-write-pass! (:char ch-data)))))
 
 ;; ---- Small pieces --------------------------------------------------------
-(defn- speak-error-msg [status]
-  (case status
-    :no-speech
-    "Speech is not available in this browser."
-    :no-zh-voice
-    "No Chinese voice was found on this device, so there is nothing to play. Install a Chinese voice in your device's language/voice settings (for example, on iPhone: Settings > Accessibility > Spoken Content > Voices > Chinese), then try again."
-    :waiting
-    "Speech voices are still loading — it should play in a moment. If it doesn't, click Hear it again."
-    "Speech is not available in this browser."))
-
-(defn speak!
-  "Speak a character; if speech is unavailable, show a message instead
-   of failing silently (the previous behaviour, which made 'Hear it'
-   look like it did nothing)."
-  [ch]
-  (let [status (store/speak ch
-                            (fn [s]
-                              (if (= s :ok)
-                                (swap! ui dissoc :speak-error)
-                                (swap! ui assoc :speak-error (speak-error-msg s)))))]
-    (if (= status :ok)
-      (swap! ui dissoc :speak-error)
-      (swap! ui assoc :speak-error (speak-error-msg status)))))
-
 (defn state-badge [ch]
   (let [s (state-of ch)]
     [:span {:class (str "badge badge-" (name s))}
@@ -204,9 +180,7 @@
      [:p [:strong "MTSU gloss: "] (:english-mtsu ch-data)])
    [:p [:strong "MTSU pinyin: "] (:pinyin-mtsu ch-data)
     "  ·  " [:strong "Frequency: "] (:freq ch-data)]
-   [:button {:on-click #(speak! (:char ch-data))} "🔊 Hear it"]
-   (when (:speak-error @ui)
-     [:p {:style {:color "#b91c1c"}} (:speak-error @ui)])])
+   ])
 
 (defn option-list [label options selected on-select]
   [:div {:style {:margin "12px 0"}}
@@ -224,10 +198,6 @@
     [:div {:class "card"}
      [:h3 (str "Read: what is this character?  (" (inc (:pos q)) " of " (count (:queue q)) ")")]
      [:div {:style {:font-size "96px" :text-align "center"}} (:char ch-data)]
-     [:div {:style {:display "flex" :gap "8px" :justify-content "center"}}
-      [:button {:on-click #(speak! (:char ch-data))} "🔊 Hear it"]]
-     (when (:speak-error @ui)
-       [:p {:style {:color "#b91c1c" :text-align "center"}} (:speak-error @ui)])
      [option-list "Pinyin" (:pinyin-opts q) (:sel-pinyin q)
       #(swap! ui assoc-in [:quiz :sel-pinyin] %)]
      [option-list "Meaning" (:meaning-opts q) (:sel-meaning q)

@@ -23,8 +23,7 @@ Flow:
 1. **Learn** — large character, pinyin with tone marks, MTSU numeric
    pinyin, definition, MTSU English gloss, radical, decomposition,
    stroke count, rank and frequency. A "Play stroke order" animation
-   walks a dot along each stroke's median, in order. A "Hear it"
-   button uses the browser's built-in speech synthesis (zh-CN).
+   walks a dot along each stroke's median, in order.
 2. **Practise writing** — draw on the writing pad, one stroke at a time.
    The faint shape is a hint; the orange dot is where the next stroke
    starts. A stroke counts when its direction is generally right
@@ -234,6 +233,5 @@ scripts/resolve_maven.py   proxy-capable Maven pre-download (offline build)
 data-raw/                  fetched sources (development only)
 ```
 
-Only ClojureScript and Reagent are used for the app itself; the
-browser's built-in speech synthesis is used for pronunciation, and
-no other front-end library is involved.
+Only ClojureScript and Reagent are used for the app itself; no
+other front-end library is involved.
