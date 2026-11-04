@@ -45,6 +45,11 @@
 
    Pass when:
    - the stroke is a dot/short mark close to the median's centre, or
+   - the expected stroke itself is a dian (丶): its median is short
+     (under ~200 units), so a dot placed in the right place passes
+     regardless of direction — a dot has no meaningful direction, and
+     a user may flick it down-left while the median runs down-right
+     (e.g. 之 stroke 1, median length ~160; 以 stroke 2, ~133), or
    - its overall direction is within ~70 degrees of the median's
      direction (cosine > 0.34) AND it is loosely near the median
      (centroid, start or end within 450 units on a 1024 grid).
@@ -57,14 +62,32 @@
         med-dir (direction med)
         user-dir (direction user-pts)
         len (path-length user-pts)
+        med-len (path-length med)
         med-cent (centroid med)
         user-cent (centroid user-pts)]
     (cond
-      (< (count user-pts) 2)
+      (empty? user-pts)
       {:pass? false :angle-degrees nil :reason "That stroke was too short to read."}
+
+      ;; A tap is a single point: the old (< count 2) check failed
+      ;; every tap outright, so a dian drawn as a tap could never
+      ;; pass. Accept a tap on a dian, reject a tap elsewhere.
+      (= (count user-pts) 1)
+      (if (and (< med-len 200) (< (dist user-cent med-cent) 280))
+        {:pass? true :angle-degrees 0 :reason "Dot in the right place."}
+        {:pass? false :angle-degrees nil :reason "That stroke was too short to read."})
 
       ;; Dot-like strokes (e.g. 丶): direction is meaningless, proximity is the test.
       (and (< len 60) (< (dist user-cent med-cent) 280))
+      {:pass? true :angle-degrees 0 :reason "Dot in the right place."}
+
+      ;; Dian (丶) expected: short median, short user mark, right
+      ;; place — direction does not decide it. This is the fix for
+      ;; 之 and 以: a natural ~90-unit flick previously fell through
+      ;; to the direction check and failed whenever its direction
+      ;; differed from the median's, even though it was a dot in
+      ;; exactly the right spot.
+      (and (< med-len 200) (< len 220) (< (dist user-cent med-cent) 280))
       {:pass? true :angle-degrees 0 :reason "Dot in the right place."}
 
       (or (nil? med-dir) (nil? user-dir))
