@@ -1,7 +1,11 @@
 node_modules/
 .shadow-cljs/
 public/js/
-data-raw/
+data-raw/*
+!data-raw/makemeahanzi/
+data-raw/makemeahanzi/*
+!data-raw/makemeahanzi/dictionary.txt
+!data-raw/makemeahanzi/graphics.txt
 resolve.log
 .DS_Store
 .clj-kondo
