@@ -314,7 +314,12 @@
               :on-change #(swap! ui assoc :search (.. % -target -value))}]
      [:p (str (count filtered) " characters shown.")]
      [:div {:class "browse-grid"}
-      (for [c (take 200 filtered)]
+      ;; Previously this was (take 200 filtered): the count above said
+      ;; 1000, but only the first 200 cards were actually rendered, so
+      ;; Browse never reached the rest of the list. Render all of
+      ;; filtered now — 1000 simple cards is fine for React, and a
+      ;; search narrows it further.
+      (for [c filtered]
         ^{:key (:char c)}
         [:div {:class "browse-card"}
          [:span {:style {:font-size "32px"}} (:char c)] [:br]
