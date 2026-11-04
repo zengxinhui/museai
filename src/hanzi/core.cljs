@@ -1,6 +1,6 @@
 (ns hanzi.core
   (:require [reagent.core :as r]
-            [reagent.dom :as rdom]
+            [reagent.dom.client :as rdom-client]
             [hanzi.data :as data]
             [hanzi.storage :as store]
             [hanzi.ui :as ui]))
@@ -424,5 +424,17 @@
           :accounts [accounts-view]
           [learn-view])]])))
 
+;; React 19 (via Reagent 2.0.1) has no react-dom/render: the old
+;; reagent.dom/render only works with React 18 or older, and silently
+;; fails with React 19. Use the create-root API instead, keeping the
+;; root in a defonce so a second init (e.g. hot reload) re-renders
+;; into the same root instead of creating a second one.
+(defonce app-root (atom nil))
+
 (defn ^:export init []
-  (rdom/render [app] (.getElementById js/document "app")))
+  (let [root (or @app-root
+                 (let [r (rdom-client/create-root
+                           (.getElementById js/document "app"))]
+                   (reset! app-root r)
+                   r))]
+    (rdom-client/render root [app])))
