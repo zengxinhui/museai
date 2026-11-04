@@ -83,8 +83,13 @@
           [:button {:on-click play!} (if playing? "Restart" "▶ Play stroke order")]
           [:button {:on-click (fn []
                                 (stop!)
+                                ;; Bug fix: this used to cap idx at (dec count),
+                                ;; so the last stroke could never advance to
+                                ;; "Done" — Next just restarted the last stroke.
+                                ;; Allow idx to reach (count medians), which is
+                                ;; the done? state.
                                 (swap! anim update :idx
-                                       (fn [i] (min (dec (count medians)) (inc i))))
+                                       (fn [i] (min (count medians) (inc i))))
                                 (swap! anim assoc :t 0))}
            "Next stroke"]
           [:button {:on-click (fn [] (stop!) (reset! anim {:idx 0 :t 0 :playing? false :timer nil}))}
@@ -122,10 +127,17 @@
                                    pass? (:pass? res)]
                                (if (= mode :practice)
                                  (if pass?
+                                   ;; Same last-stroke bug as the animation's
+                                   ;; Next button: practice never set :done?
+                                   ;; after the final stroke, so the pad said
+                                   ;; "Draw stroke N+1 of N" and any further
+                                   ;; stroke was silently dropped. Mark done
+                                   ;; when the last stroke passes.
                                    (swap! state assoc
                                           :idx (inc idx) :current []
                                           :user-strokes (conj (:user-strokes @state) current)
                                           :results results'
+                                          :done? (>= (inc idx) (count medians))
                                           :msg (str "Stroke " (inc idx) " ✓ — " (:reason res)))
                                    (swap! state assoc :current []
                                           :msg (str "Not quite — " (:reason res) " Try this stroke again.")))
