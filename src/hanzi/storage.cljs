@@ -35,6 +35,22 @@
     (.setItem js/localStorage storage-key (pr-str db))
     (catch :default _ nil)))
 
+(defn parse-backup
+  "Parse a backup file's EDN text. Returns the db map if it looks like
+   a Hanzi Learner backup (version 1, accounts map, current account
+   either nil or present), otherwise nil. Used by Upload/Restore."
+  [text]
+  (try
+    (let [db (reader/read-string text)]
+      (when (and (map? db)
+                 (= 1 (:version db))
+                 (map? (:accounts db))
+                 (or (nil? (:current db))
+                     (contains? (:accounts db) (:current db))))
+        (assoc db :current (or (:current db)
+                               (first (keys (:accounts db)))))))
+    (catch :default _ nil)))
+
 (defn new-account [name now]
   {:name name :created-at now :progress {}})
 

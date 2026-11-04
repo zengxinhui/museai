@@ -328,6 +328,37 @@
          [state-badge (:char c)] [:br]
          [:small (if (contains? batch-set (:char c)) "In current batch" (str "#" (:rank c)))]])]]))
 
+(defn handle-restore-file [e]
+  (when-let [file (aget (.. e -target -files) 0)]
+    (let [reader (js/FileReader.)]
+      (set! (.-onload reader)
+            (fn []
+              (let [restored (store/parse-backup (.-result reader))]
+                (if (nil? restored)
+                  (swap! ui assoc :restore-msg
+                         "Could not restore: that file is not a valid Hanzi Learner backup (EDN, version 1). Nothing was changed.")
+                  (when (js/confirm (str "Restore backup? This will replace all "
+                                         (count (:accounts @db))
+                                         " account(s) currently in this browser with "
+                                         (count (:accounts restored))
+                                         " account(s) from the backup."))
+                    (reset! db restored)
+                    (swap! ui assoc :restore-msg
+                           (str "Restored " (count (:accounts restored))
+                                " account(s) from backup. Current account: "
+                                (or (:current restored) "none") ".")))))))
+      (.readAsText reader file))
+    ;; Allow choosing the same file again after a restore attempt.
+    (set! (.. e -target -value) "")))
+
+(defn restore-control []
+  [:div {:style {:margin-top "12px"}}
+   [:p "Restore from a backup file (.edn) previously downloaded from this app. "
+    "This replaces all accounts currently in this browser — download a fresh backup first if you want to keep them."]
+   [:input {:type "file" :accept ".edn" :on-change handle-restore-file}]
+   (when-let [msg (:restore-msg @ui)]
+     [:p msg])])
+
 (defn accounts-view []
   (let [names (sort (keys (:accounts @db)))
         new-name (:new-account @ui)]
@@ -370,11 +401,15 @@
                               (set! (.-download a) "hanzi-learner-backup.edn")
                               (.click a)
                               (.revokeObjectURL js/URL url)))}
-       "Download backup (EDN)"]]]))
+       "Download backup (EDN)"]
+      [restore-control]]))
 
 (defn account-setup []
   [:div {:class "card"}
    [:h2 "Welcome — make an account"]
+   [:h3 "Restore from backup"]
+   [restore-control]
+   [:hr]
    [:p "This app keeps everything in this browser. Pick a name for your account to start learning the 1000 most frequent characters."]
    [:input {:type "text" :placeholder "Your name"
             :value (:new-account @ui)
