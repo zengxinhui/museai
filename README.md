@@ -41,6 +41,12 @@ Flow:
    is the upper limit). A review tests reading and then writing;
    passing goes up a step, failing either resets the interval to
    1 day, with the character staying Learned and due again tomorrow.
+   Results are saved as you go: each character is written to
+   localStorage as soon as its review is decided, and the reading
+   half is saved as soon as it is passed — so stopping mid-session
+   does not lose the characters already done, and a character whose
+   reading was already passed resumes at writing instead of starting
+   over.
 6. **Browse** — a searchable reference list of all 500, in rank
    order. Browsing does not change the teaching order.
 7. **Pick of the Day** — a curated phrase, sentence, or short

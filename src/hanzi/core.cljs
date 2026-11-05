@@ -75,6 +75,7 @@
                             (fn [q] (assoc q :state "learned"
                                            :level 0
                                            :next-review (store/next-review-ms now 0)
+                                           :review-read-ok? false
                                            :last-seen now)))))
 
 (defn record-review-pass! [ch]
@@ -87,7 +88,20 @@
                                            :reviews (inc (:reviews q 0))
                                            :level new-level
                                            :next-review (store/next-review-ms now new-level)
+                                           :review-read-ok? false
                                            :last-seen now)))))
+
+;; The read half of a review is committed as soon as it is answered,
+;; not held until the write half (or the end of the session) is done.
+;; The interval does not move yet: it only moves up when the write
+;; half also passes (record-review-pass!), or resets when either half
+;; fails (reset-review!). The flag is what lets a review interrupted
+;; after the read half resume at the write half instead of starting
+;; that character over.
+(defn record-review-read-pass! [ch]
+  (store/update-progress! db (current-name) ch
+                          (fn [q] (assoc q :review-read-ok? true
+                                         :last-seen (js/Date.now)))))
 
 ;; ---- Quizzes -------------------------------------------------------------
 (defn make-question [ch-data]
@@ -100,15 +114,25 @@
                                  (take 3 (distinct (map :definition others))))))]
     {:pinyin-opts pinyin-opts :meaning-opts meaning-opts}))
 
+(defn review-resume-write? [kind ch-data]
+  "True when a review of this character was interrupted after its
+   read half had already passed, so the review resumes at writing
+   instead of making the learner redo the reading."
+  (and (= kind :review)
+       (:review-read-ok? (progress-of (:char ch-data)))))
+
 (defn start-quiz! [kind queue]
   (if (empty? queue)
     (swap! ui assoc :quiz {:kind kind :queue [] :pos 0 :empty? true})
-    (let [first-ch (first queue)]
+    (let [first-ch (first queue)
+          resume-write? (review-resume-write? kind first-ch)]
       (swap! ui assoc :quiz (merge {:kind kind :queue (vec queue) :pos 0
-                                    :stage :read :answered? false
+                                    :stage (if resume-write? :write :read)
+                                    :answered? false
                                     :sel-pinyin nil :sel-meaning nil
                                     :read-ok? false :write-result nil}
-                                   (when (or (= kind :read) (= kind :review))
+                                   (when (or (= kind :read)
+                                             (and (= kind :review) (not resume-write?)))
                                      (make-question first-ch)))))))
 
 (defn quiz-char []
@@ -121,11 +145,15 @@
         next-pos (inc (:pos q))]
     (if (>= next-pos (count (:queue q)))
       (swap! ui assoc-in [:quiz :pos] next-pos)
-      (let [next-ch (nth (:queue q) next-pos)]
-        (swap! ui assoc :quiz (merge q {:pos next-pos :stage :read :answered? false
+      (let [next-ch (nth (:queue q) next-pos)
+            resume-write? (review-resume-write? (:kind q) next-ch)]
+        (swap! ui assoc :quiz (merge q {:pos next-pos
+                                        :stage (if resume-write? :write :read)
+                                        :answered? false
                                         :sel-pinyin nil :sel-meaning nil
                                         :read-ok? false :write-result nil}
-                                     (when (or (= (:kind q) :read) (= (:kind q) :review))
+                                     (when (or (= (:kind q) :read)
+                                               (and (= (:kind q) :review) (not resume-write?)))
                                        (make-question next-ch))))))))
 
 (defn submit-read! []
@@ -139,7 +167,8 @@
     (cond
       (= (:kind q) :review)
       (if ok?
-        (swap! ui assoc-in [:quiz :stage] :write)
+        (do (record-review-read-pass! (:char ch-data))
+            (swap! ui assoc-in [:quiz :stage] :write))
         (do (reset-review! (:char ch-data))
             (swap! ui assoc-in [:quiz :stage] :failed)))
       ok? (record-read-pass! (:char ch-data)))))
@@ -211,7 +240,7 @@
                    (first (:pinyin ch-data)) " — " (:definition ch-data) "."))]
         (if (= (:stage q) :failed)
           [:div
-           [:p "This character goes back to Learning, so it will come up again in your current batch."]
+           [:p "That review did not pass, so its interval resets to 1 day. It will be due again tomorrow."]
            [:button {:on-click advance-quiz!} "Next review"]]
           [:button {:on-click advance-quiz!} "Next"])]
        [:button {:disabled (or (nil? (:sel-pinyin q)) (nil? (:sel-meaning q)))
@@ -543,7 +572,7 @@
                        "Test the characters in your current batch. Write from pinyin and meaning only — no template."
                        (fn [] (filter #(= :learning (state-of (:char %))) (current-batch)))]
           :review [quiz-view :review "Review learned characters"
-                   "Learned characters come back after 1, 2, 4, 8, 16, then 32 days (32 is the upper limit). Pass reading and writing to go up a step; fail either and the interval resets to 1 day."
+                   "Learned characters come back after 1, 2, 4, 8, 16, then 32 days (32 is the upper limit). Pass reading and writing to go up a step; fail either and the interval resets to 1 day. Each character is saved as soon as you finish it — stop mid-session and the ones you have done stay done, and a character whose reading you already passed resumes at writing."
                    (fn [] (if (seq (due-chars)) (due-chars)
                             (filter #(= :learned (state-of (:char %))) data/chars)))]
           :browse [browse-view]
