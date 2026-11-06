@@ -36,10 +36,18 @@ Flow:
 3. **Read quiz** — for characters in the current batch that are in
    Learning: pick the pinyin and the meaning from multiple-choice
    options (distractors are drawn from other top-500 characters).
+   A pass is saved to localStorage the moment it happens, and the
+   quiz shows a running "Passed N of M" strip that ticks each
+   character as it is passed. The Learn batch buttons also show
+   Read ✓/· and Write ✓/· ticks, so a pass in one quiz is visible
+   even before the other half is passed and the character becomes
+   Learned.
 4. **Write quiz** — write from pinyin + meaning only, no template.
    Each stroke is scored once, in order, then the next stroke is
    attempted. A pass needs at least 80% of strokes correct
-   (100% for 1–2 stroke characters).
+   (100% for 1–2 stroke characters). Like the Read quiz, a pass is
+   saved the moment it happens and ticked in the quiz progress strip
+   as you go.
 5. **Review** — Learned characters come back on a spaced schedule:
    1, 2, 4, 8, 16, then 32 days after the previous pass (32 days
    is the upper limit). A review tests reading and then writing;

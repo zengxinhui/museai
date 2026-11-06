@@ -130,7 +130,13 @@
                                     :stage (if resume-write? :write :read)
                                     :answered? false
                                     :sel-pinyin nil :sel-meaning nil
-                                    :read-ok? false :write-result nil}
+                                    :read-ok? false :write-result nil
+                                    ;; Per-character results for this session,
+                                    ;; so the quiz shows progress as you go:
+                                    ;; a passed character is ticked the
+                                    ;; moment it is passed, not only when
+                                    ;; the whole quiz finishes.
+                                    :passed #{} :failed #{}}
                                    (when (or (= kind :read)
                                              (and (= kind :review) (not resume-write?)))
                                      (make-question first-ch)))))))
@@ -164,6 +170,13 @@
                  (= (:sel-meaning q) (:definition ch-data)))]
     (swap! ui assoc-in [:quiz :answered?] true)
     (swap! ui assoc-in [:quiz :read-ok?] ok?)
+    ;; Session result, shown in the quiz progress strip as you go.
+    ;; A read quiz character is decided here; a review character is
+    ;; only decided as failed here (its pass waits for the write half).
+    (when (or (= (:kind q) :read)
+              (and (= (:kind q) :review) (not ok?)))
+      (swap! ui update-in [:quiz (if ok? :passed :failed)]
+             (fn [s] (conj (or s #{}) (:char ch-data)))))
     (cond
       (= (:kind q) :review)
       (if ok?
@@ -182,6 +195,12 @@
                    (>= (/ correct total) 0.8)
                    (or (> total 2) (= correct total)))]
     (swap! ui assoc-in [:quiz :write-result] {:correct correct :total total :pass? pass?})
+    ;; Session result, shown in the quiz progress strip as you go.
+    ;; A write quiz character and a review character are both decided
+    ;; here, when the writing is scored.
+    (when (contains? #{:write :review} (:kind q))
+      (swap! ui update-in [:quiz (if pass? :passed :failed)]
+             (fn [s] (conj (or s #{}) (:char ch-data)))))
     (cond
       (= (:kind q) :review)
       (if pass?
@@ -267,10 +286,28 @@
             [:p "This character stays in Learning. Practise it in Learn, then try the quiz again."])
           [:button {:on-click advance-quiz!} "Next"]]))]))
 
+(defn quiz-progress-strip [q]
+  "Per-character progress for this quiz session, updated the moment
+   each character is passed or failed — not only when the quiz ends.
+   A tick means that character's test was passed in this session;
+   a cross means it was failed; a dot means it has not been tested yet."
+  (let [passed (:passed q #{}) failed (:failed q #{}) queue (:queue q)]
+    [:div {:style {:display "flex" :gap "6px" :flex-wrap "wrap" :align-items "center" :margin "8px 0"}}
+     [:span (str "Passed " (count passed) " of " (count queue) " in this quiz: ")]
+     (for [ch-data queue]
+       ^{:key (:char ch-data)}
+       [:span {:style {:font-size "20px"}}
+        (:char ch-data)
+        (cond (contains? passed (:char ch-data)) " ✓"
+              (contains? failed (:char ch-data)) " ✗"
+              :else " ·")])]))
+
 (defn quiz-view [kind title blurb queue-fn]
   (let [q (:quiz @ui)]
     [:div
      [:h2 title] [:p blurb]
+     (when (and q (seq (:queue q)))
+       [quiz-progress-strip q])
      (cond
        (nil? q)
        [:button {:on-click #(start-quiz! kind (queue-fn))} "Start"]
@@ -309,7 +346,12 @@
         [:button {:class (str "batch-btn" (when (= (:char ch-data) (:char selected)) " active"))
                   :on-click #(swap! ui assoc :learn-char (:char ch-data) :view :learn :learn-tab :display)}
          [:span {:style {:font-size "28px"}} (:char ch-data)]
-         [:br] (first (:pinyin ch-data)) [:br] [state-badge (:char ch-data)]])]
+         [:br] (first (:pinyin ch-data)) [:br] [state-badge (:char ch-data)]
+         ;; Which half-tests this character has already passed, so a
+         ;; pass in one quiz is visible here even before the other
+         ;; half is passed and the character becomes Learned.
+         [:br] [:small (str "Read " (if (pos? (:read-pass (progress-of (:char ch-data)) 0)) "✓" "·")
+                            "  Write " (if (pos? (:write-pass (progress-of (:char ch-data)) 0)) "✓" "·"))]])]
      (if selected
        [:div {:class "card"}
         ;; Two tabs inside the character card, so the display and the
