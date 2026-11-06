@@ -10,7 +10,7 @@
 ;; db is the only persisted atom; a watch writes it to localStorage.
 ;; ui holds transient view / quiz state and is never persisted.
 (defonce db (r/atom (store/load-db)))
-(defonce ui (r/atom {:view :learn :learn-char nil :search "" :quiz nil :new-account ""}))
+(defonce ui (r/atom {:view :learn :learn-char nil :learn-tab :display :search "" :quiz nil :new-account ""}))
 
 (add-watch db :persist
            (fn [_ _ _ new-db] (store/save-db! new-db)))
@@ -295,7 +295,8 @@
   (let [batch (current-batch)
         selected (or (some #(when (= (:char %) (:learn-char @ui)) %) batch)
                      (first batch))
-        c (counts)]
+        c (counts)
+        tab (or (:learn-tab @ui) :display)]
     [:div
      [:h2 "Learn"]
      [:p (str "Learning in Keats order, at most 5 at a time. "
@@ -306,21 +307,39 @@
       (for [ch-data batch]
         ^{:key (:char ch-data)}
         [:button {:class (str "batch-btn" (when (= (:char ch-data) (:char selected)) " active"))
-                  :on-click #(swap! ui assoc :learn-char (:char ch-data) :view :learn)}
+                  :on-click #(swap! ui assoc :learn-char (:char ch-data) :view :learn :learn-tab :display)}
          [:span {:style {:font-size "28px"}} (:char ch-data)]
          [:br] (first (:pinyin ch-data)) [:br] [state-badge (:char ch-data)]])]
      (if selected
        [:div {:class "card"}
-        [char-header selected]
-        [:h3 "Stroke order"]
-        ^{:key (str "anim-" (:char selected))}
-        [ui/stroke-animation selected]
-        [:h3 "Practise writing"]
-        [:p "Trace the strokes in order. The faint shape is a hint — turn it off when you feel ready. "
-         "A stroke counts when its direction is generally right; you can retry a stroke as often as you like here."]
-        ^{:key (str "pad-" (:char selected))}
-        [ui/writing-pad {:ch-data selected :mode :practice :ghost? true
-                         :on-complete (fn [_] (mark-learning! (:char selected)))}]
+        ;; Two tabs inside the character card, so the display and the
+        ;; writing pad are never stacked on one long page: the user
+        ;; switches between them instead of scrolling up and down.
+        ;; The batch selector above and the action buttons below stay
+        ;; visible in both tabs. Switching character resets to the
+        ;; Character tab; switching tabs resets the pad/animation
+        ;; (they remount), which is the expected tab behaviour.
+        [:div {:class "subtabs"}
+         [:button {:class (when (= tab :display) "active")
+                   :on-click #(swap! ui assoc :learn-tab :display)}
+          "Character"]
+         [:button {:class (when (= tab :practice) "active")
+                   :on-click #(swap! ui assoc :learn-tab :practice)}
+          "Practise writing"]]
+        (case tab
+          :practice
+          [:div
+           [:h3 "Practise writing"]
+           [:p "Trace the strokes in order. The faint shape is a hint — turn it off when you feel ready. "
+            "A stroke counts when its direction is generally right; you can retry a stroke as often as you like here."]
+           ^{:key (str "pad-" (:char selected))}
+           [ui/writing-pad {:ch-data selected :mode :practice :ghost? true
+                            :on-complete (fn [_] (mark-learning! (:char selected)))}]]
+          [:div
+           [char-header selected]
+           [:h3 "Stroke order"]
+           ^{:key (str "anim-" (:char selected))}
+           [ui/stroke-animation selected]])
         [:div {:style {:margin-top "12px" :display "flex" :gap "8px" :flex-wrap "wrap"}}
          [:button {:on-click #(mark-learning! (:char selected))}
           (if (= :new (state-of (:char selected)))

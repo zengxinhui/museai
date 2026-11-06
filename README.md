@@ -20,15 +20,19 @@ Each character has one of three states, per account:
 
 Flow:
 
-1. **Learn** — large character, pinyin with tone marks, MTSU numeric
-   pinyin, definition, MTSU English gloss, radical, decomposition,
-   stroke count, rank and frequency. A "Play stroke order" animation
-   walks a dot along each stroke's median, in order.
-2. **Practise writing** — draw on the writing pad, one stroke at a time.
-   The faint shape is a hint; the orange dot is where the next stroke
-   starts. A stroke counts when its direction is generally right
-   (see "How stroke checking works" below). Wrong strokes can be
-   retried as often as you like in practice.
+1. **Learn** — the character card has two tabs, so the display and
+   the writing pad are never stacked on one long page:
+   - **Character** — large character, pinyin with tone marks, MTSU
+     numeric pinyin, definition, MTSU English gloss, radical,
+     decomposition, stroke count, rank and frequency. A "Play stroke
+     order" animation walks a dot along each stroke's median, in order.
+   - **Practise writing** — draw on the writing pad, one stroke at a
+     time. The faint shape is a hint; the orange dot is where the next
+     stroke starts. A stroke counts when its direction is generally
+     right (see "How stroke checking works" below). Wrong strokes can
+     be retried as often as you like in practice.
+   The batch selector and the "move to Learning" / quiz buttons stay
+   visible in both tabs; switching character returns to the Character tab.
 3. **Read quiz** — for characters in the current batch that are in
    Learning: pick the pinyin and the meaning from multiple-choice
    options (distractors are drawn from other top-500 characters).

@@ -18,6 +18,10 @@
   input[type="text"] { padding: 10px; font-size: 16px; border: 1px solid #d1d5db; border-radius: 8px; margin-right: 8px; }
   .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin: 16px 0; }
   .batch { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+  /* Sub-tabs inside the Learn character card: Character display vs
+     Practise writing. Only one is shown at a time, so the page
+     does not need scrolling between them. */
+  .subtabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 12px; }
   .batch-btn { min-width: 86px; text-align: center; }
   /* Bug fix: button.active sets color:#fff (white) for nav buttons.
      .batch-btn.active only overrode the background to pale blue,
