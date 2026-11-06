@@ -29,9 +29,24 @@
 (defn- direction [pts]
   ;; Smooth the ends: average the first/last few points, so a shaky
   ;; start or finish does not decide the direction.
-  (let [a (avg (take 3 pts))
-        b (avg (take-last 3 pts))]
-    (when (and a b) [(- (first b) (first a)) (- (second b) (second a))])))
+  ;; But that smoothing must not be used on a 3-point (or shorter)
+  ;; stroke: the first 3 and the last 3 points are then the same
+  ;; points, so the direction comes out as [0 0] and the stroke can
+  ;; never pass, however accurately it is drawn. That was the bug
+  ;; behind 到 stroke 6: its median has exactly 3 points, length
+  ;; ~411, so it fell through to the direction check with a zero
+  ;; median direction and always failed. The same fault affected
+  ;; 104 strokes in 94 characters. For 3 points or fewer, use the
+  ;; plain end-minus-start direction instead.
+  (let [n (count pts)]
+    (cond
+      (< n 2) nil
+      (<= n 3) (let [[x1 y1] (first pts)
+                     [x2 y2] (last pts)]
+                 [(- x2 x1) (- y2 y1)])
+      :else (let [a (avg (take 3 pts))
+                  b (avg (take-last 3 pts))]
+              (when (and a b) [(- (first b) (first a)) (- (second b) (second a))])))))
 
 (defn- path-length [pts]
   (reduce + 0 (map dist pts (rest pts))))
