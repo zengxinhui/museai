@@ -233,8 +233,7 @@
    (when (seq (:english-mtsu ch-data))
      [:p [:strong "MTSU gloss: "] (:english-mtsu ch-data)])
    [:p [:strong "MTSU pinyin: "] (:pinyin-mtsu ch-data)
-    "  ·  " [:strong "Frequency: "] (:freq ch-data)]
-   ])
+    "  ·  " [:strong "Frequency: "] (:freq ch-data)]])
 
 (defn option-list [label options selected on-select]
   [:div {:style {:margin "12px 0"}}
@@ -382,7 +381,14 @@
           "Character"]
          [:button {:class (when (= tab :practice) "active")
                    :on-click #(swap! ui assoc :learn-tab :practice)}
-          "Practise writing"]]
+          "Practise writing"]
+         (when (not= :learned (state-of (:char selected)))
+           [:button {:on-click #(mark-learning! (:char selected))}
+            (if (= :new (state-of (:char selected)))
+              "I've studied this — move it to Learning"
+              "Keep this in Learning")])
+         [:button {:on-click #(swap! ui assoc :view :read-quiz :quiz nil)} "Test reading"]
+         [:button {:on-click #(swap! ui assoc :view :write-quiz :quiz nil)} "Test writing"]]
         (case tab
           :practice
           [:div
@@ -400,13 +406,7 @@
         [:div {:style {:margin-top "12px" :display "flex" :gap "8px" :flex-wrap "wrap"}}
          ;; No "move to Learning" button for a Learned character:
          ;; it is already Learned, and the button must not demote it.
-         (when (not= :learned (state-of (:char selected)))
-           [:button {:on-click #(mark-learning! (:char selected))}
-            (if (= :new (state-of (:char selected)))
-              "I've studied this — move it to Learning"
-              "Keep this in Learning")])
-         [:button {:on-click #(swap! ui assoc :view :read-quiz :quiz nil)} "Test reading"]
-         [:button {:on-click #(swap! ui assoc :view :write-quiz :quiz nil)} "Test writing"]]]
+         ]]
        [:p "🎉 All 500 characters learned. Use Review to keep them fresh."])]))
 
 ;; ---- Pick of the Day -----------------------------------------------------
@@ -658,7 +658,7 @@
           :review [quiz-view :review "Review learned characters"
                    "Learned characters come back after 1, 2, 4, 8, 16, then 32 days (32 is the upper limit). Pass reading and writing to go up a step; fail either and the interval resets to 1 day. Each character is saved as soon as you finish it — stop mid-session and the ones you have done stay done, and a character whose reading you already passed resumes at writing."
                    (fn [] (if (seq (due-chars)) (due-chars)
-                            (filter #(= :learned (state-of (:char %))) data/chars)))]
+                              (filter #(= :learned (state-of (:char %))) data/chars)))]
           :browse [browse-view]
           :pick [pick-of-day-view]
           :accounts [accounts-view]
@@ -674,7 +674,7 @@
 (defn ^:export init []
   (let [root (or @app-root
                  (let [r (rdom-client/create-root
-                           (.getElementById js/document "app"))]
+                          (.getElementById js/document "app"))]
                    (reset! app-root r)
                    r))]
     (rdom-client/render root [app])))
