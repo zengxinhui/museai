@@ -217,8 +217,30 @@ python3 -m http.server --directory public 8000
 For development with live reload instead:
 
 ```sh
-npx shadow-cljs watch app
+scripts/watch.sh
+# open http://localhost:3000/
 ```
+
+`watch.sh` auto-compiles on every code change (an incremental
+recompile takes under a second once the first build is done) and
+the browser hot-reloads: the `:after-load` hook in
+`shadow-cljs.edn` (`hanzi.core/refresh`) re-renders the app into
+the existing root, so edits show up without a manual refresh.
+Account data and UI state live in `defonce` atoms and survive the
+reload — the current account, the selected character and any quiz
+in progress are not lost. Editing `public/index.html` (or other
+static files under `public/`) reloads the whole page instead, via
+`:devtools :watch-dir`.
+
+In this workspace `watch.sh` runs the compiler directly with a
+hand-built classpath, because plain `npx shadow-cljs watch app`
+fails here the same way `npx shadow-cljs release app` does: it
+tries to resolve Maven dependencies through an old wagon that
+cannot use the egress proxy (see the "Java in this workspace"
+section below). `scripts/watch.sh release app` runs a one-off
+release build. The dev build `watch` writes is unoptimised
+(~10 MB) and `public/js/main.js` is gitignored; run a release
+build before sharing the app.
 
 ### Java in this workspace (persistent, no apt needed)
 
