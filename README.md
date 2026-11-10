@@ -60,7 +60,11 @@ Flow:
    reading was already passed resumes at writing instead of starting
    over.
 6. **Browse** — a searchable reference list of all 500, in rank
-   order. Browsing does not change the teaching order.
+   order. Click a character to open it in Learn — its stroke order
+   and writing practice — including one already Learned. Opening a
+   character this way does not change the teaching order or its
+   state, and studying or practising a Learned character never
+   moves it back to Learning.
 7. **Pick of the Day** — a curated phrase, sentence, or short
    conversation from `src/hanzi/picks.cljs` (424 entries, all
    characters from the top 500, covering 498 of the 500 — the

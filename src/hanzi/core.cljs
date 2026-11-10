@@ -53,8 +53,13 @@
                                                :next-review (store/next-review-ms now 0))))))))
 
 (defn mark-learning! [ch]
-  (store/update-progress! db (current-name) ch
-                          (fn [p] (assoc p :state "learning" :last-seen (js/Date.now)))))
+  ;; Studying or practising a character must never demote it: a
+  ;; Learned character opened from Browse (to review its stroke
+  ;; order) stays Learned when it is studied or its practice pad is
+  ;; completed. Only New and Learning characters move to Learning.
+  (when (not= :learned (state-of ch))
+    (store/update-progress! db (current-name) ch
+                            (fn [p] (assoc p :state "learning" :last-seen (js/Date.now))))))
 
 (defn record-read-pass! [ch]
   (store/update-progress! db (current-name) ch
@@ -330,7 +335,12 @@
 ;; ---- Main views ----------------------------------------------------------
 (defn learn-view []
   (let [batch (current-batch)
-        selected (or (some #(when (= (:char %) (:learn-char @ui)) %) batch)
+        ;; The selected character is looked up in all 500, not only
+        ;; in the current batch, so a character opened from Browse —
+        ;; including one already Learned — can be viewed here with
+        ;; its stroke order and writing practice. The teaching batch
+        ;; itself is unchanged: it is still the first 5 non-Learned.
+        selected (or (some #(when (= (:char %) (:learn-char @ui)) %) data/chars)
                      (first batch))
         c (counts)
         tab (or (:learn-tab @ui) :display)]
@@ -383,10 +393,13 @@
            ^{:key (str "anim-" (:char selected))}
            [ui/stroke-animation selected]])
         [:div {:style {:margin-top "12px" :display "flex" :gap "8px" :flex-wrap "wrap"}}
-         [:button {:on-click #(mark-learning! (:char selected))}
-          (if (= :new (state-of (:char selected)))
-            "I've studied this — move it to Learning"
-            "Keep this in Learning")]
+         ;; No "move to Learning" button for a Learned character:
+         ;; it is already Learned, and the button must not demote it.
+         (when (not= :learned (state-of (:char selected)))
+           [:button {:on-click #(mark-learning! (:char selected))}
+            (if (= :new (state-of (:char selected)))
+              "I've studied this — move it to Learning"
+              "Keep this in Learning")])
          [:button {:on-click #(swap! ui assoc :view :read-quiz :quiz nil)} "Test reading"]
          [:button {:on-click #(swap! ui assoc :view :write-quiz :quiz nil)} "Test writing"]]]
        [:p "🎉 All 500 characters learned. Use Review to keep them fresh."])]))
@@ -483,8 +496,10 @@
         batch-set (set (map :char (current-batch)))]
     [:div
      [:h2 "Browse all 500"]
-     [:p "This is a reference list in Keats order. Teaching itself stays in batches of 5 — "
-      "a character outside the current batch can be looked up here, but it only enters Learn, quizzes and Review through the batch order."]
+     [:p "This is a reference list in Keats order. Click a character to open it in Learn — "
+      "its stroke order and writing practice — including characters already Learned. "
+      "Opening one does not change the teaching order or its state: it only enters Learn, "
+      "quizzes and Review through the batch order."]
      [:input {:type "text" :placeholder "Search character, pinyin or meaning…"
               :value search :style {:width "100%" :padding "10px" :font-size "16px"}
               :on-change #(swap! ui assoc :search (.. % -target -value))}]
@@ -497,7 +512,10 @@
       ;; search narrows it further.
       (for [c filtered]
         ^{:key (:char c)}
-        [:div {:class "browse-card"}
+        [:div {:class "browse-card"
+               :title "Open in Learn"
+               :style {:cursor "pointer"}
+               :on-click #(swap! ui assoc :view :learn :learn-char (:char c) :learn-tab :display)}
          [:span {:style {:font-size "32px"}} (:char c)] [:br]
          (first (:pinyin c)) [:br]
          [:small (:definition c)] [:br]
