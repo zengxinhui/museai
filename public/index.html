@@ -6,36 +6,71 @@
 <title>Hanzi Learner — 500 most frequent Chinese characters</title>
 <style>
   * { box-sizing: border-box; }
-  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f9fafb; color: #111827; }
+  /* Warm gradient page background: cream -> pink -> lavender -> pale sky. */
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: linear-gradient(180deg, #fffbeb 0%, #fdf2f8 35%, #ede9fe 70%, #e0f2fe 100%); background-attachment: fixed; color: #111827; }
   .wrap { max-width: 900px; margin: 0 auto; padding: 16px; }
-  header h1 { margin-bottom: 4px; }
-  header p { color: #4b5563; }
+  /* Gradient hero header: violet -> magenta -> amber, white text. */
+  header { background: linear-gradient(90deg, #7c3aed, #db2777, #f59e0b); color: #fff; border-radius: 16px; padding: 20px 24px; margin-top: 8px; }
+  header h1 { margin: 0 0 4px; }
+  header p { color: #fdf4ff; margin: 0; }
   nav { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
   button { padding: 10px 16px; font-size: 16px; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; cursor: pointer; }
   button:hover { background: #f3f4f6; }
   button.active { background: #111827; color: #fff; border-color: #111827; }
   button:disabled { opacity: .5; cursor: default; }
+  /* Primary action buttons (Start, Check answer, Next) get a warm
+     violet-to-pink gradient instead of plain white. */
+  button.primary { background: linear-gradient(90deg, #7c3aed, #db2777); color: #fff; border-color: transparent; }
+  button.primary:hover { filter: brightness(.93); background: linear-gradient(90deg, #7c3aed, #db2777); }
+  /* Per-view nav colours: the active tab takes its view's colour.
+     These beat button.active on specificity (two classes vs one). */
+  .nav-learn.active { background: #7c3aed; border-color: #7c3aed; }
+  .nav-read-quiz.active { background: #0284c7; border-color: #0284c7; }
+  .nav-write-quiz.active { background: #e11d48; border-color: #e11d48; }
+  .nav-review.active { background: #d97706; border-color: #d97706; }
+  .nav-browse.active { background: #059669; border-color: #059669; }
+  .nav-pick.active { background: #ea580c; border-color: #ea580c; }
+  .nav-accounts.active { background: #475569; border-color: #475569; }
+  /* Per-view accents: heading colour and a coloured top edge on cards. */
+  .view-learn h2 { color: #7c3aed; }
+  .view-read-quiz h2 { color: #0284c7; }
+  .view-write-quiz h2 { color: #e11d48; }
+  .view-review h2 { color: #d97706; }
+  .view-browse h2 { color: #059669; }
+  .view-pick h2 { color: #ea580c; }
+  .view-accounts h2 { color: #475569; }
+  .view-learn .card { border-top: 4px solid #7c3aed; }
+  .view-read-quiz .card { border-top: 4px solid #0284c7; }
+  .view-write-quiz .card { border-top: 4px solid #e11d48; }
+  .view-review .card { border-top: 4px solid #d97706; }
+  .view-browse .card { border-top: 4px solid #059669; }
+  .view-pick .card { border-top: 4px solid #ea580c; }
+  .view-accounts .card { border-top: 4px solid #475569; }
+  /* Quiz feedback and the progress-strip ticks, in green/red. */
+  .feedback-correct { color: #15803d; font-weight: 600; }
+  .feedback-wrong { color: #b91c1c; font-weight: 600; }
+  .tick-pass { color: #16a34a; font-weight: 700; }
+  .tick-fail { color: #dc2626; font-weight: 700; }
   input[type="text"] { padding: 10px; font-size: 16px; border: 1px solid #d1d5db; border-radius: 8px; margin-right: 8px; }
-  .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin: 16px 0; }
+  .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin: 16px 0; box-shadow: 0 1px 3px rgba(17, 24, 39, .08); }
   .batch { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
   /* Sub-tabs inside the Learn character card: Character display vs
      Practise writing. Only one is shown at a time, so the page
      does not need scrolling between them. */
   .subtabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 12px; }
+  .subtabs button.active { background: #7c3aed; border-color: #7c3aed; }
   .batch-btn { min-width: 86px; text-align: center; }
-  /* Bug fix: button.active sets color:#fff (white) for nav buttons.
-     .batch-btn.active only overrode the background to pale blue,
-     leaving white text on pale blue — nearly unreadable.
-     The selected Learn character now explicitly uses dark text
-     on pale blue, with a stronger border. */
-  .batch-btn.active { background: #dbeafe; border-color: #2563eb; color: #111827; }
-  .batch-btn.active:hover { background: #bfdbfe; color: #111827; }
+  /* The selected Learn character uses dark text on pale violet,
+     with a stronger border (white text on pale blue was unreadable). */
+  .batch-btn.active { background: #ede9fe; border-color: #7c3aed; color: #111827; }
+  .batch-btn.active:hover { background: #ddd6fe; color: #111827; }
   .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 13px; }
   .badge-new { background: #e5e7eb; }
   .badge-learning { background: #fef3c7; }
   .badge-learned { background: #d1fae5; }
   .browse-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 12px; }
   .browse-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; }
+  .browse-card:hover { border-color: #059669; box-shadow: 0 2px 10px rgba(5, 150, 105, .18); }
   svg { user-select: none; -webkit-user-select: none; }
 </style>
 </head>

@@ -241,7 +241,9 @@
    [:p [:strong label]]
    (for [opt options]
      ^{:key opt}
-     [:label {:style {:display "block" :margin "6px 0" :cursor "pointer"}}
+     [:label {:style {:display "block" :margin "6px 0" :cursor "pointer"
+                      :padding "4px 8px" :border-radius "8px"
+                      :background (when (= selected opt) "#ede9fe")}}
       [:input {:type "radio" :name label :checked (= selected opt)
                :on-change #(on-select opt)}]
       " " (if (> (count opt) 90) (str (subs opt 0 90) "…") opt)])])
@@ -258,16 +260,18 @@
       #(swap! ui assoc-in [:quiz :sel-meaning] %)]
      (if (:answered? q)
        [:div
-        [:p (if (:read-ok? q)
-              "✓ Correct on both pinyin and meaning."
-              (str "✗ Not quite. The answer is "
-                   (first (:pinyin ch-data)) " — " (:definition ch-data) "."))]
+        [:p {:class (if (:read-ok? q) "feedback-correct" "feedback-wrong")}
+         (if (:read-ok? q)
+           "✓ Correct on both pinyin and meaning."
+           (str "✗ Not quite. The answer is "
+                (first (:pinyin ch-data)) " — " (:definition ch-data) "."))]
         (if (= (:stage q) :failed)
           [:div
            [:p "That review did not pass, so its interval resets to 1 day. It will be due again tomorrow."]
-           [:button {:on-click advance-quiz!} "Next review"]]
-          [:button {:on-click advance-quiz!} "Next"])]
-       [:button {:disabled (or (nil? (:sel-pinyin q)) (nil? (:sel-meaning q)))
+           [:button {:class "primary" :on-click advance-quiz!} "Next review"]]
+          [:button {:class "primary" :on-click advance-quiz!} "Next"])]
+       [:button {:class "primary"
+                 :disabled (or (nil? (:sel-pinyin q)) (nil? (:sel-meaning q)))
                  :on-click submit-read!}
         "Check answer"])]))
 
@@ -285,11 +289,12 @@
      (when (:write-result q)
        (let [{:keys [correct total pass?]} (:write-result q)]
          [:div
-          [:p (str (if pass? "✓ Passed writing: " "✗ Writing needs more practice: ")
-                   correct " of " total " strokes correct.")]
+          [:p {:class (if pass? "feedback-correct" "feedback-wrong")}
+           (str (if pass? "✓ Passed writing: " "✗ Writing needs more practice: ")
+                correct " of " total " strokes correct.")]
           (when-not pass?
             [:p "This character stays in Learning. Practise it in Learn, then try the quiz again."])
-          [:button {:on-click advance-quiz!} "Next"]]))]))
+          [:button {:class "primary" :on-click advance-quiz!} "Next"]]))]))
 
 (defn quiz-progress-strip [q]
   "Per-character progress for this quiz session, updated the moment
@@ -303,9 +308,9 @@
        ^{:key (:char ch-data)}
        [:span {:style {:font-size "20px"}}
         (:char ch-data)
-        (cond (contains? passed (:char ch-data)) " ✓"
-              (contains? failed (:char ch-data)) " ✗"
-              :else " ·")])]))
+        (cond (contains? passed (:char ch-data)) [:span {:class "tick-pass"} " ✓"]
+              (contains? failed (:char ch-data)) [:span {:class "tick-fail"} " ✗"]
+              :else [:span {:style {:color "#9ca3af"}} " ·"])])]))
 
 (defn quiz-view [kind title blurb queue-fn]
   (let [q (:quiz @ui)]
@@ -315,11 +320,11 @@
        [quiz-progress-strip q])
      (cond
        (nil? q)
-       [:button {:on-click #(start-quiz! kind (queue-fn))} "Start"]
+       [:button {:class "primary" :on-click #(start-quiz! kind (queue-fn))} "Start"]
        (:empty? q)
-       [:div [:p "Nothing to test here yet."] [:button {:on-click #(swap! ui assoc :quiz nil)} "Back"]]
+       [:div [:p "Nothing to test here yet."] [:button {:class "primary" :on-click #(swap! ui assoc :quiz nil)} "Back"]]
        (>= (:pos q) (count (:queue q)))
-       [:div [:p "✓ Quiz finished."] [:button {:on-click #(swap! ui assoc :quiz nil)} "Back"]]
+       [:div [:p "✓ Quiz finished."] [:button {:class "primary" :on-click #(swap! ui assoc :quiz nil)} "Back"]]
        (= kind :read) [read-question-view]
        (= kind :write) [write-question-view (quiz-char)]
        (= kind :review)
@@ -328,7 +333,7 @@
          :write [write-question-view (quiz-char)]
          :failed [:div {:class "card"}
                   [:p "That review did not pass, so its interval resets to 1 day. It will be due again tomorrow."]
-                  [:button {:on-click advance-quiz!} "Next review"]]
+                  [:button {:class "primary" :on-click advance-quiz!} "Next review"]]
          [read-question-view])
        :else [:p "Unknown quiz."])]))
 
@@ -638,10 +643,10 @@
                          [:review (str "Review" (when (pos? due) (str " (" due ")")))]
                          [:browse "Browse"] [:pick "Pick of the Day"] [:accounts "Accounts"]]]
           ^{:key v}
-          [:button {:class (when (= view v) "active")
+          [:button {:class (str "nav-" (name v) (when (= view v) " active"))
                     :on-click #(swap! ui assoc :view v :quiz nil)}
            label])]
-       [:main
+       [:main {:class (str "view-" (name view))}
         (case view
           :learn [learn-view]
           :read-quiz [quiz-view :read "Read quiz"
